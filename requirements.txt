@@ -1,0 +1,6 @@
+pandas # Dataframes, for data manipulation and analysis
+matplotlib # Creating static, animated, and interactive visualizations in Python
+scikit-learn # Machine learning library for Python
+yfinance # Yahoo Finance API for Python
+numpy # Numerical computing library for Python
+pandas_ta # Technical analysis using pandas dataframes (RSI, MACD, etc.)

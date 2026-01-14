@@ -215,7 +215,7 @@ data/*.parquet
 # Models
 models/*.h5
 models/*.sav
-models/*.pkl
+# models/*.pkl
 !models/.gitkeep
 
 # OS files

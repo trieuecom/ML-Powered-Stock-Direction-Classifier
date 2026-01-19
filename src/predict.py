@@ -1,0 +1,65 @@
+import pandas as pd
+import yfinance as yf
+import joblib
+import pandas_ta as ta
+
+# Load scaler and models from models folder function
+def load_assets():
+    try:
+        scaler = joblib.load('../models/scaler.pkl')
+        xgb_model = joblib.load('../models/best_xgb_model.pkl')
+        rf_model = joblib.load('../models/best_random_forest_model.pkl')
+        print('All models and scaler have been loaded successfully!')
+        return scaler, rf_model, xgb_model
+    except Exception as e:
+        print(f'There is an error {e} when loading the models/scaler')
+        return None, None, None
+        
+
+def get_latest_data(tickers):
+    data_list = []
+    for ticker in tickers:
+        try:    
+            df = yf.download(tickers=ticker, period='1y', interval= '1d')
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+                
+            df['RSI'] = ta.rsi(df['Close'], length=14)        
+            df['SMA_50'] = ta.sma(df['Close'], length=50)
+            df['Ticker'] = ticker
+            
+            df.dropna(inplace = True)
+            data_list.append(df)
+            print(f"The data of {ticker} ticker has been fetched succesfully!")
+            
+        except Exception as e:
+            print(f"There is an error when fetching the data of {ticker}!")
+    if not data_list: return None       
+    final_data = pd.concat(data_list)
+    return final_data
+
+def make_prediction(model, scaler, data, features_list):
+    X = data[features_list]
+    print("Cột trong Predict:", X.columns.tolist())
+    print("Cột Scaler mong đợi:", scaler.feature_names_in_.tolist())
+    X_scaled = scaler.transform(X)
+    prob_result = model.predict_proba(X_scaled)[:,1]
+    return prob_result
+
+
+if __name__ == "__main__":
+    tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+    features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
+    # STEP 1: LOAD THE MODEL AND SCALER
+    scaler, rf, xgb = load_assets()
+    # STEP 2: GET THE LATEST DATA
+    df_all = get_latest_data(tickers)
+    
+    if df_all is not None:
+        latest_data = df_all.groupby('Ticker').tail(1)
+        # STEP 3: MAKE PREDICTION
+        probs = make_prediction(xgb, scaler, latest_data, features_list)
+        # STEP 4: SHOW RESULTS
+        for tick, prob in zip(latest_data['Ticker'], probs):
+            advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
+            print(f" Ticker: {tick:6} | Action: {advice}")

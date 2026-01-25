@@ -2,13 +2,19 @@ import pandas as pd
 import yfinance as yf
 import joblib
 import pandas_ta as ta
+import os
+from sklearn.model_selection import train_test_split 
+from sklearn.preprocessing import StandardScaler
 
 # Load scaler and models from models folder function
 def load_assets():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    model_joined_path = os.path.join(current_dir,"..","models")
     try:
-        scaler = joblib.load('../models/scaler.pkl')
-        xgb_model = joblib.load('../models/best_xgb_model.pkl')
-        rf_model = joblib.load('../models/best_random_forest_model.pkl')
+        # Take the current directory of this predict.py file
+        scaler = joblib.load(os.path.join(model_joined_path,'scaler.pkl'))
+        xgb_model = joblib.load(os.path.join(model_joined_path,'best_xgb_model.pkl'))
+        rf_model = joblib.load(os.path.join(model_joined_path,'best_random_forest_model.pkl'))
         print('All models and scaler have been loaded successfully!')
         return scaler, rf_model, xgb_model
     except Exception as e:
@@ -20,17 +26,23 @@ def get_latest_data(tickers):
     data_list = []
     for ticker in tickers:
         try:    
-            df = yf.download(tickers=ticker, period='1y', interval= '1d')
+            df = yf.download(tickers=ticker, period='2y', interval= '1d')
+            if df.empty:
+                print(f'There is no data for {ticker}')
+                continue
+            
             if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
+                df.columns = df.columns.get_level_values(0)   
                 
             df['RSI'] = ta.rsi(df['Close'], length=14)        
             df['SMA_50'] = ta.sma(df['Close'], length=50)
             df['Ticker'] = ticker
             
-            df.dropna(inplace = True)
-            data_list.append(df)
-            print(f"The data of {ticker} ticker has been fetched succesfully!")
+            df.dropna(subset = ['RSI', 'SMA_50'], inplace = True)            
+            
+            if not df.empty:
+                data_list.append(df)
+                print(f"The data of {ticker} ticker has been fetched succesfully!")
             
         except Exception as e:
             print(f"There is an error when fetching the data of {ticker}!")
@@ -40,9 +52,7 @@ def get_latest_data(tickers):
 
 def make_prediction(model, scaler, data, features_list):
     X = data[features_list]
-    print("Cột trong Predict:", X.columns.tolist())
-    print("Cột Scaler mong đợi:", scaler.feature_names_in_.tolist())
-    X_scaled = scaler.transform(X)
+    X_scaled = scaler.transform(X.values)
     prob_result = model.predict_proba(X_scaled)[:,1]
     return prob_result
 

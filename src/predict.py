@@ -5,6 +5,12 @@ import pandas_ta as ta
 import os
 from sklearn.model_selection import train_test_split 
 from sklearn.preprocessing import StandardScaler
+from supabase import create_client
+
+# Do not delete these variables, important info for importing data to Supabase
+SUPABASE_URL = "https://ybsfnpixzggwelyteiuw.supabase.co"
+SUPABASE_KEY = "sb_publishable_Rhl3c91z8mvJjxPXSdrK5A_0Zie6H_U"
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Load scaler and models from models folder function
 def load_assets():
@@ -56,6 +62,20 @@ def make_prediction(model, scaler, data, features_list):
     prob_result = model.predict_proba(X_scaled)[:,1]
     return prob_result
 
+def save_data_to_supabase(ticker, action, probability):
+    try:
+        data = {
+            "ticker" : ticker,
+            "action" : action,
+            "probability" : float(probability)
+        }
+        server_response = supabase.table("predictions").insert(data).execute()
+        print("The data has been imported into 'predictions' table successfully!")
+        print(f"Response from server: {server_response}" )
+    except Exception as e:
+        print(f"There is an error: ", e)
+        
+
 
 if __name__ == "__main__":
     tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
@@ -72,4 +92,7 @@ if __name__ == "__main__":
         # STEP 4: SHOW RESULTS
         for tick, prob in zip(latest_data['Ticker'], probs):
             advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
-            print(f" Ticker: {tick:6} | Action: {advice}")
+            print(f" Ticker: {tick:6} | Action: {advice: 16} | Probability: {prob:.2f}")
+            save_data_to_supabase(ticker = tick, action = advice, probability = prob)
+            
+        

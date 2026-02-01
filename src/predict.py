@@ -9,7 +9,7 @@ from supabase import create_client
 
 # Do not delete these variables, important info for importing data to Supabase
 SUPABASE_URL = "https://ybsfnpixzggwelyteiuw.supabase.co"
-SUPABASE_KEY = "sb_publishable_Rhl3c91z8mvJjxPXSdrK5A_0Zie6H_U"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlic2ZucGl4emdnd2VseXRlaXV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMDQ2NzgsImV4cCI6MjA4NDg4MDY3OH0.dgdn_F_lJcRibL2Jk-qMCuMaTn7rA7qZQUkA0oXwjfs"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Load scaler and models from models folder function

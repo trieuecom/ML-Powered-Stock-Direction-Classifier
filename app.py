@@ -23,6 +23,7 @@ if st.button("Download stock price data"):
             df = pd.DataFrame(data)
             cols = ["created_at", "ticker", "action", "probability"]
             df = df[cols]
+            df["created_at"] = pd.to_datetime(df['created_at']).dt.strftime('%d-%m-%Y %H:%M')
             st.success("Done!")
             st.dataframe(df, width = "stretch")
             st.bar_chart(df.set_index('ticker')['probability'],width = "stretch")

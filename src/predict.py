@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 import yfinance as yf
 import joblib
 import pandas_ta as ta
@@ -14,17 +15,17 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Load scaler and models from models folder function
 def load_assets():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    model_joined_path = os.path.join(current_dir,"..","models")
+    root_dir = os.getcwd()
+    model_joined_path = os.path.join(root_dir,"models")
     try:
         # Take the current directory of this predict.py file
         scaler = joblib.load(os.path.join(model_joined_path,'scaler.pkl'))
         xgb_model = joblib.load(os.path.join(model_joined_path,'best_xgb_model.pkl'))
         rf_model = joblib.load(os.path.join(model_joined_path,'best_random_forest_model.pkl'))
-        print('All models and scaler have been loaded successfully!')
+        st.toast('All models and scaler have been loaded successfully!')
         return scaler, rf_model, xgb_model
     except Exception as e:
-        print(f'There is an error {e} when loading the models/scaler')
+        st.error(f'There is an error {e} when loading the models/scaler')
         return None, None, None
         
 
@@ -91,7 +92,7 @@ if __name__ == "__main__":
         # STEP 4: SHOW RESULTS
         for tick, prob in zip(latest_data['Ticker'], probs):
             advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
-            print(f" Ticker: {tick:6} | Action: {advice: 16} | Probability: {prob:.2f}")
+            print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
             save_data_to_supabase(ticker = tick, action = advice, probability = prob)
             
         

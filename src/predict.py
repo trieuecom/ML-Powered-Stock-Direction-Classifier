@@ -75,6 +75,9 @@ def save_data_to_supabase(ticker, action, probability):
         print(f"Response from server: {server_response}" )
     except Exception as e:
         print(f"There is an error: ", e)
+        
+def delete_all_history():
+    supabase.table("predictions").delete().neq("id", 0).execute()
 
 
 if __name__ == "__main__":

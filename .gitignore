@@ -2,6 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -217,6 +218,9 @@ models/*.h5
 models/*.sav
 # models/*.pkl
 !models/.gitkeep
+
+# Streamlit config
+.streamlit/secrets.toml
 
 # OS files
 .DS_Store

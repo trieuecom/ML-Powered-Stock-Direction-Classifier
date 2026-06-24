@@ -224,3 +224,6 @@ models/*.sav
 
 # OS files
 .DS_Store
+
+# Local environment variables
+.env

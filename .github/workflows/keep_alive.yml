@@ -8,7 +8,7 @@ on:
 
 jobs: 
   ping_supabase: 
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps: 
     - name: Send a ping request to Supabase to keep it alive

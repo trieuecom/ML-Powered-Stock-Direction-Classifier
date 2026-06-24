@@ -1,9 +1,10 @@
 from supabase import create_client
+import streamlit as st
 
 # Do not delete these variables, important info for importing data to Supabase
-SUPABASE_URL = "https://ybsfnpixzggwelyteiuw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlic2ZucGl4emdnd2VseXRlaXV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMDQ2NzgsImV4cCI6MjA4NDg4MDY3OH0.dgdn_F_lJcRibL2Jk-qMCuMaTn7rA7qZQUkA0oXwjfs"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_SECRET_KEY"]
+supabase = create_client(url, key)
 
 def get_prediction_history(limit=10):
     # select("*"), select all rows

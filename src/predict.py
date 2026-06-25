@@ -81,7 +81,11 @@ def save_data_to_supabase(ticker, action, probability):
         print(f"There is an error: ", e)
         
 def delete_all_history():
-    supabase.table("predictions").delete().neq("id", 0).execute()
+    try:
+        server_del = supabase.table("predictions").delete().gt("id", 0).execute()
+        print(f"Delete the data rows successfully {server_del}")
+    except Exception as e: 
+        print(f"There is an error deleting database: {e}")
 
 
 if __name__ == "__main__":

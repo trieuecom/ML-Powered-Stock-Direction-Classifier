@@ -227,3 +227,11 @@ models/*.sav
 
 # Local environment variables
 .env
+
+# Private files for Streamlit
+.streamlit/
+
+.venv/
+venv/
+__pycache__/
+*.pyc

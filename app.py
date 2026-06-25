@@ -5,19 +5,19 @@ from src.predict import *
 from src.fetch_data import get_prediction_history
 
 # Configure the application page
-st.set_page_config(page_title = "Stock Direction", 
+st.set_page_config(page_title = "Stock Direction App", 
                    page_icon = "📊", 
-                   layout = "centered",
+                   layout = "wide",
                    initial_sidebar_state = "auto",
                    menu_items = {
-                       'About': "# This is an *extremely* cool app!"
+                       'About': " End-to-end application to predict Big Tech's stock movements,using Streamlit-powered dashboard for real-time data retrieval."
                    })
 # Main website headings
 st.title("🚀 AI Stock Direction Classifier")
 st.markdown("Data is directly stored on **Supabase Cloud**.")
 
 # Sidebar control
-st.sidebar.header("🤖 Control the AI")
+st.sidebar.header("Choose your tickers to predict")
 tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']
 features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
 list_tickers = st.sidebar.multiselect("Pick tickers to predict:", options = tickers, default= ['AAPL', 'MSFT'])
@@ -27,9 +27,10 @@ if "needs_refresh" not in st.session_state:
     st.session_state.needs_refresh = False
 if "show_results" not in st.session_state:
     st.session_state.show_results = False
+
     
 # Refresh and clear buttons
-col_refresh, col_clear = st.columns([2, 2])
+col_refresh, col_clear, col_dummy = st.columns([1.5, 1.5, 6])
 with col_refresh:
     if st.button("📊 View/Refresh Results"):
         st.session_state.show_results = not st.session_state.show_results
@@ -37,9 +38,9 @@ with col_refresh:
             st.session_state.needs_refresh = True
 with col_clear:
     if st.button("Clear Database 🗑️"):
-        delete_all_history()
-        st.success("All prediction data has been deleted!")
-        st.rerun()
+        with st.spinner("Deleting all data rows..."):
+            delete_all_history()
+            st.success("All prediction data has been deleted!")
         
 # Show prediction history button
 if st.session_state.show_results or st.session_state.needs_refresh:
@@ -68,11 +69,11 @@ if st.session_state.show_results or st.session_state.needs_refresh:
             
             st.session_state.needs_refresh = False
         else: 
-            st.error("Database is empty. Activate AI to see data.")
+            st.error("Database is empty! Activate model prediction to see data.")
                 
 
-# Main AI prediction button
-if st.sidebar.button("Activate AI prediction!"):
+# Main prediction button
+if st.sidebar.button("Activate prediction!"):
     if not list_tickers: 
         st.sidebar.warning("Please select at least one ticker!")
     else:

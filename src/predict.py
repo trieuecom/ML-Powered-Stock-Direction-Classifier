@@ -9,9 +9,13 @@ from sklearn.preprocessing import StandardScaler
 from supabase import create_client
 
 # Do not delete these variables, important info for importing data to Supabase
-SUPABASE_URL = "https://ybsfnpixzggwelyteiuw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlic2ZucGl4emdnd2VseXRlaXV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzMDQ2NzgsImV4cCI6MjA4NDg4MDY3OH0.dgdn_F_lJcRibL2Jk-qMCuMaTn7rA7qZQUkA0oXwjfs"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_SECRET_KEY"]
+
+if not url or not key:
+    print("Please configure Supabase key and URL first!")
+
+supabase = create_client(url, key)
 
 # Load scaler and models from models folder function
 def load_assets():

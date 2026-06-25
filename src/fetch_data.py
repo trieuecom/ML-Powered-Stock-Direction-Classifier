@@ -17,7 +17,8 @@ def get_prediction_history(limit=10):
         return response.data
         
     except Exception as e:
-        print(f"There is an error", e)
+        st.error(f"There is an error {e}")
+        return None
         
 
 if __name__ == "__main__":

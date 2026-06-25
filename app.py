@@ -38,8 +38,8 @@ with col_refresh:
 with col_clear:
     if st.button("Clear Database 🗑️"):
         delete_all_history()
-        st.session_state.needs_refresh = True 
-        st.error("All prediction data has been deleted!")
+        st.success("All prediction data has been deleted!")
+        st.rerun()
         
 # Show prediction history button
 if st.session_state.show_results or st.session_state.needs_refresh:

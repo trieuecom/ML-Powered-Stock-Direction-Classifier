@@ -58,7 +58,7 @@ if st.session_state.show_results or st.session_state.needs_refresh:
 
             # Success message 
             st.success("Here is the latest tickers' data!")
-            st.dataframe(df_display, width = "stretch")
+            st.dataframe(df_display, width = "stretch", hide_index=True)
             # Drop duplicates
             df_display = df_display.drop_duplicates(subset = ['ticker'], keep = 'first')
             

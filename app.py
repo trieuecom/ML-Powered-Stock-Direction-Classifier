@@ -51,10 +51,10 @@ if st.session_state.show_results or st.session_state.needs_refresh:
             df['created_at'] = pd.to_datetime(df['created_at'])
             
             # Create a display table
-            cols = ["created_at", "ticker", "action", "probability"]
+            cols = ["id", "created_at", "ticker", "action", "probability"]
             df_display = df[cols].copy()
-            df_display["created_at"] = pd.to_datetime(df_display['created_at']).dt.strftime('%d-%m-%Y %H:%M')
-            df_display = df_display.sort_values(by = 'ticker', ascending = True)
+            df_display["created_at"] = pd.to_datetime(df_display['created_at']).dt.strftime('%H:%M %d-%m-%Y')
+            df_display = df_display.sort_values(by = 'id', ascending = True)
 
             # Success message 
             st.success("Here is the latest tickers' data!")
@@ -86,7 +86,7 @@ if st.sidebar.button("Activate AI prediction!"):
                     latest_data = df_all.groupby('Ticker').tail(1)
                     probs = make_prediction(xgb, scaler, latest_data, features_list)
                     for tick, prob in zip(latest_data['Ticker'], probs):
-                        advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
+                        advice = "BUY 💵" if prob > 0.7 else "WAIT IS BETTER ⌛"
                         print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
                         save_data_to_supabase(ticker = tick, action = advice, probability = prob)
                     st.sidebar.success("Prediction complete ✅")

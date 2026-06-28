@@ -9,3 +9,4 @@ matplotlib==3.10.8
 yfinance==0.2.66
 pandas-ta==0.4.71b0
 xgboost
+google-genai==0.1.1

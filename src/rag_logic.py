@@ -1,6 +1,36 @@
 import yfinance as yf
+import json
 from google import genai
 from google.genai import types
+
+def get_ticker_action_info(user_query):
+    client = genai.Client()
+    tick_act_prompt = f"""
+    Analyze the following user query: {user_query} and extract the information:
+    1. The stock ticker symbol mentioned (e.g., if the user enters Apple or similar words, convert it to AAPL; similarly: NVDA for NVIDIA, MSFT for Microsoft, GOOGL for Google, AMZN for Amazon, TSLA for Tesla).
+    2. Understand the context of the query and extract the action from the user's query (e.g., WAIT, SELL, BUY, HOLD, GENERAL_INFO). Example: User query: "What should I do with my Apple's stocks right now? Should I sell or buy more?", this will return AAPL as the ticket and GENERAL_INFO as the action.
+    Return ONLY a valid JSON object with the keys "ticker" and "action". Do not include any markdown formatting or backticks.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model = "gemini-3.5-flash",
+            contents = tick_act_prompt,
+            config= genai.types.GenerateContentConfig(
+                temperature=0.0, #always take the exact query info from the user, no distorting
+                response_mime_type="application/json" #Forcing Gemini to return in JSON format        
+            )
+        )
+        
+        # Parsing the JSON response into text:
+        result = json.loads(response.text)
+        ticker = result.get("ticker")
+        action = result.get("action")
+        return ticker, action
+    
+    except Exception as e:
+        print(f"There is an error in returning user's ticker and action info: {e}")
+        return None, "GENERAL_INFO"
 
 def get_news_summary(ticker):
     try:
@@ -30,7 +60,7 @@ def get_news_summary(ticker):
         print(f"Error fetching for Ticker: {ticker}: {e}!")
         return None
 
-def get_latest_(ticker, action, probability, news_context): 
+def get_latest_queries(ticker, action, probability, news_context): 
     client = genai.Client()
     
     # Choosing client models as we can choose the instruction preference

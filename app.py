@@ -3,6 +3,7 @@ import pandas as pd
 import time 
 from src.predict import *
 from src.fetch_data import get_prediction_history
+from src.rag_logic import get_ticker_action_info, get_news_summary, get_latest_analysis
 
 # Configure the application page
 st.set_page_config(page_title = "Stock Direction App", 
@@ -20,17 +21,41 @@ st.markdown("Data is directly stored on **Supabase Cloud**.")
 st.sidebar.header("Choose your tickers to predict")
 tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']
 features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
-list_tickers = st.sidebar.multiselect("Pick tickers to predict:", options = tickers, default= ['AAPL', 'MSFT'])
+list_tickers = st.sidebar.multiselect("Pick tickers to predict:", options = tickers)
 
 
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = {}
 if "needs_refresh" not in st.session_state:
     st.session_state.needs_refresh = False
 if "show_results" not in st.session_state:
     st.session_state.show_results = False
 
-    
+# Main prediction button
+if st.sidebar.button("Activate prediction!"):
+    if not list_tickers: 
+        st.sidebar.warning("Please select at least one ticker!")
+    else:
+        with st.spinner("Generating prediction...", show_time = True):
+            scaler, rf, xgb = load_assets()
+            if xgb is None or scaler is None:
+                st.sidebar.error("xgb and scaler cannot be found")
+            else:
+                df_all = get_latest_data(list_tickers) # get data from selected tickers list
+                if df_all is not None:
+                    latest_data = df_all.groupby('Ticker').tail(1)
+                    probs = make_prediction(xgb, scaler, latest_data, features_list)
+                    for tick, prob in zip(latest_data['Ticker'], probs):
+                        advice = "BUY 💵" if prob > 0.7 else "WAIT IS BETTER ⌛"
+                        print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
+                        save_data_to_supabase(ticker = tick, action = advice, probability = prob)
+                    st.sidebar.success("Prediction complete ✅")
+                    st.session_state.show_results = True
+                    st.session_state.needs_refresh = True    
+                    st.rerun()
+   
 # Refresh and clear buttons
-col_refresh, col_clear, col_dummy = st.columns([1.5, 1.5, 6])
+col_refresh, col_clear, col_query = st.columns([1.5, 1.5, 6])
 with col_refresh:
     if st.button("📊 View/Refresh Results"):
         st.session_state.show_results = not st.session_state.show_results
@@ -41,6 +66,21 @@ with col_clear:
         with st.spinner("Deleting all data rows..."):
             delete_all_history()
             st.success("All prediction data has been deleted!")
+with col_query:
+    user_query = st.text_input("What financial decision are you looking for today?")
+    if user_query:
+        # Step 1: Saving queries into chat history
+        st.session_state.chat_history.append("role" : "user", "query": user_query) #Append to the session state list with role and the query's content
+        
+        with st.spinner("Your personal analyst is working, please wait..."):
+            # Step 2: Using Gemini API to extract query info
+            extracted_ticker, extracted_action = get_ticker_action_info(user_query)
+            # Step 2.1: 
+            if not extracted_ticker:
+                st.toast("Please make sure to specifiy your ticker to get more specific financial information on the company")
+                st.toast(f"Analyzing the latest ticker from the database: {extracted_ticker}")
+        
+        
         
 # Show prediction history button
 if st.session_state.show_results or st.session_state.needs_refresh:
@@ -72,27 +112,6 @@ if st.session_state.show_results or st.session_state.needs_refresh:
             st.error("Database is empty! Activate model prediction to see data.")
                 
 
-# Main prediction button
-if st.sidebar.button("Activate prediction!"):
-    if not list_tickers: 
-        st.sidebar.warning("Please select at least one ticker!")
-    else:
-        with st.spinner("Generating prediction...", show_time = True):
-            scaler, rf, xgb = load_assets()
-            if xgb is None or scaler is None:
-                st.sidebar.error("xgb and scaler cannot be found")
-            else:
-                df_all = get_latest_data(list_tickers) # get data from selected tickers list
-                if df_all is not None:
-                    latest_data = df_all.groupby('Ticker').tail(1)
-                    probs = make_prediction(xgb, scaler, latest_data, features_list)
-                    for tick, prob in zip(latest_data['Ticker'], probs):
-                        advice = "BUY 💵" if prob > 0.7 else "WAIT IS BETTER ⌛"
-                        print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
-                        save_data_to_supabase(ticker = tick, action = advice, probability = prob)
-                    st.sidebar.success("Prediction complete ✅")
-                    st.session_state.show_results = True
-                    st.session_state.needs_refresh = True    
-                    st.rerun()
+
 
 

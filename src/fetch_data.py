@@ -6,25 +6,55 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_SECRET_KEY"]
 supabase = create_client(url, key)
 
-def get_prediction_history(limit=10):
+def get_prediction_history(limit = 10):
     # select("*"), select all rows
     # limit = 10, limit top 10 latest data
     try:
         response = supabase.table("predictions") \
             .select("*") \
             .order("created_at", desc=True) \
+            .limit(limit) \
             .execute()
         return response.data
         
     except Exception as e:
-        st.error(f"There is an error {e}")
+        st.error(f"There is an error: {e}")
         return None
         
-
-if __name__ == "__main__":
-    data = get_prediction_history()
-    if data: 
-        print(f"Data: {data} is fetched successfully")
-        print(data)
-    else:
-        print("Error: There is no data to be fetched!")
+def get_latest_ticker():
+    
+    try:
+        # Getting the latest ticker based on created timestamp
+        response = supabase.table("predictions") \
+            .select("ticker") \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute() 
+        
+        latest_ticker = response.data[0]["ticker"] #Response is a object in key-value, choose key as "ticker"
+        return latest_ticker   
+    except Exception as e:
+        st.error(f"There is an error: {e}")
+        return None
+    
+def get_latest_info_from_db(ticker):
+    # If there is no ticker at all, return general action and general probability
+    if not ticker: 
+        return "GENERAL_INFO", 0.50
+    try:
+        # Query info that equal the uppercase ticker inputted only
+        response = supabase.table("predictions") \
+            .select("action, probability") \
+            .eq("ticker", ticker.upper()) \
+            .order("created_at", desc=True) \
+            .limit(1) \
+            .execute() 
+        
+        if response.data and len(response.data) > 0:
+            latest_info = response.data[0]
+            return latest_info["action"], latest_info["probability"]
+        return "GENERAL_INFO", 0.50
+    except Exception as e:
+        st.error(f"There is an error: {e}")
+        return None
+    

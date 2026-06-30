@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import time 
 from src.predict import *
-from src.fetch_data import get_prediction_history
-from src.rag_logic import get_ticker_action_info, get_news_summary, get_latest_analysis
+from src.fetch_data import *
+from src.rag_logic import *
 
 # Configure the application page
 st.set_page_config(page_title = "Stock Direction App", 
@@ -25,7 +25,7 @@ list_tickers = st.sidebar.multiselect("Pick tickers to predict:", options = tick
 
 
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = {}
+    st.session_state.chat_history = []
 if "needs_refresh" not in st.session_state:
     st.session_state.needs_refresh = False
 if "show_results" not in st.session_state:
@@ -70,18 +70,40 @@ with col_query:
     user_query = st.text_input("What financial decision are you looking for today?")
     if user_query:
         # Step 1: Saving queries into chat history
-        st.session_state.chat_history.append("role" : "user", "query": user_query) #Append to the session state list with role and the query's content
+        st.session_state.chat_history.append({"role": "user", "query": user_query}) # Append to the session state list with role and the query's content
         
         with st.spinner("Your personal analyst is working, please wait..."):
             # Step 2: Using Gemini API to extract query info
             extracted_ticker, extracted_action = get_ticker_action_info(user_query)
-            # Step 2.1: 
+                        
+            # Step 2.1: Edge case where user did not input ticker info in the query
             if not extracted_ticker:
-                st.toast("Please make sure to specifiy your ticker to get more specific financial information on the company")
-                st.toast(f"Analyzing the latest ticker from the database: {extracted_ticker}")
-        
-        
-        
+                extracted_ticker = get_latest_ticker()
+                st.toast(
+                    f"❗ **Ticker missing!** Please specify a ticker next time.\n"
+                    f"ℹ️ Auto-analyzing the latest active ticker from database: **{extracted_ticker}**"
+                )
+            
+            extracted_action_db, extracted_prob_db = get_latest_info_from_db(extracted_ticker)
+
+            # Step 2.2: Edge case when user ask general questions
+            if not extracted_action or extracted_action == "GENERAL_INFO":
+                st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
+                # If user action is general, take the action from model prediction
+                final_action = extracted_action_db 
+            else: 
+                final_action = extracted_action
+            
+            # Step 3: Get news summary and recommendations from Gemini
+            news_summary = get_news_summary(extracted_ticker)
+            # Get recommend result from Gemini based on final action
+            recommended_result = provide_recommendation(extracted_ticker, final_action, extracted_prob_db, news_summary)
+            
+            # Append model's recommended result to chat history
+            if recommended_result:
+                st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
+                st.rerun() # Reload the app after the logic is completed!
+            
 # Show prediction history button
 if st.session_state.show_results or st.session_state.needs_refresh:
     with st.spinner("In progress...", show_time = True):

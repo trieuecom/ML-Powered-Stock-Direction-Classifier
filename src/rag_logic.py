@@ -2,9 +2,10 @@ import yfinance as yf
 import json
 from google import genai
 from google.genai import types
+import streamlit as st
 
 def get_ticker_action_info(user_query):
-    client = genai.Client()
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
     tick_act_prompt = f"""
     Analyze the following user query: {user_query} and extract the information:
     1. The stock ticker symbol mentioned (e.g., if the user enters Apple or similar words, convert it to AAPL; similarly: NVDA for NVIDIA, MSFT for Microsoft, GOOGL for Google, AMZN for Amazon, TSLA for Tesla).
@@ -60,8 +61,8 @@ def get_news_summary(ticker):
         print(f"Error fetching for Ticker: {ticker}: {e}!")
         return None
 
-def get_latest_queries(ticker, action, probability, news_context): 
-    client = genai.Client()
+def provide_recommendation(ticker, action, probability, news_context): 
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
     
     # Choosing client models as we can choose the instruction preference
     system_instruction = ("You are a financial advisory expert. Based on the provided context data for the specified ticker, please provide:"

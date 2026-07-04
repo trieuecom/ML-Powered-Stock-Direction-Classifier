@@ -15,7 +15,7 @@ def get_ticker_action_info(user_query):
     
     try:
         response = client.models.generate_content(
-            model = "gemini-3.5-flash",
+            model = "gemini-2.5-flash",
             contents = tick_act_prompt,
             config= genai.types.GenerateContentConfig(
                 temperature=0.0, #always take the exact query info from the user, no distorting
@@ -61,7 +61,7 @@ def get_news_summary(ticker):
         print(f"Error fetching for Ticker: {ticker}: {e}!")
         return None
 
-def provide_recommendation(ticker, action, probability, news_context): 
+def provide_recommendation(ticker, final_action, probability, news_summary): 
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
     
     # Choosing client models as we can choose the instruction preference
@@ -74,18 +74,38 @@ def provide_recommendation(ticker, action, probability, news_context):
     )
     
     system_prompt = f"""
-    Our system has just generated a prediction based on the latest data for ticker {ticker}:
-    - Recommended action: {action}
-    - Model confidence level: {probability:.2f}
+    You are an elite, but friendl and trustworthy Financial Analyst.
+    Your task is to provide a deeply structured, insightful stock analysis based on quantitative ML models and qualitative news.
 
-    Additionally, here is the latest news providing context for {ticker}: {news_context}
+    [INPUT DATA]
+    - Ticker: {ticker}
+    - System Predicted Action: {final_action}
+    - Model Confidence (Probability): {probability:.2f} (Render as percentage, e.g., {probability*100:.1f}%)
+    - Market News Summary: {news_summary if news_summary else "No recent macro news available for this ticker."}
 
-    Based on the provided information, let us outline the rationale for the prediction, key insights, and the risks investors should consider.
+    [RESPONSE GUIDELINES & STYLE]
+    - **Tone**: Friendly, Authentic, professional, authoritative yet highly engaging. Avoid generic AI fluff ("Here is your analysis...", "Based on the provided information..."). Dive straight into the core argument!
+    - **Structure**: Break down your thinking into a razor-sharp, scannable structure using distinct bold headings and horizontal lines (---).
+    - **Depth**: Do not just state the data; *synthesize* it and explain your reasoning in bold. Explain *why* a model confidence of {probability*100:.1f}% matters with the current market news summary. If news is sparse, deduce the technical catalyst behind the {final_action} signal. State if you do not have any specific news, avoid hallucination.
+
+    [EXPECTED OUTPUT FORMAT]
+    ### 📊 Technical Catalyst & ML Alignment: {ticker}
+    * **Signal Direction**: Describe the momentum (BUY/SELL/HOLD) dynamically based on the {final_action} direction.
+    * **Confidence Layering**: Analyze the {probability*100:.1f}% probability. Explain whether this represents an aggressive bullish breakthrough or a defensive accumulation phase.
+
+    ---
+    ### 📰 Qualitative Macro Matrix (News Synthesis)
+    * Provide the news provided: {news_summary}. Connect these headlines directly to the ML model's mathematical conviction. 
+
+    ---
+    ### 🎯 Strategic Execution Strategy (The Verdict)
+    * Give concrete, actionable advice. Address the user directly with strategic weight (e.g., "For institutional or retail allocation, this indicates...").
+    * Acknowledge calculated risk factors specifically tied to {ticker} (e.g., supply chain, high valuation, or sector rotation) instead of generic market volatility.
     """
     
     try:
         model_response = client.models.generate_content(
-            model = "gemini-3.5-flash",
+            model = "gemini-2.5-flash",
             contents = system_prompt,
             config = genai.types.GenerateContentConfig(
                 system_instruction = system_instruction,

@@ -55,44 +55,55 @@ if st.sidebar.button("Activate prediction!"):
                     st.rerun()
    
 # Refresh and clear buttons
-col_refresh, col_clear, col_query = st.columns([1.5, 1.5, 6])
-with col_refresh:
+col_del_refresh, col_query = st.columns([1.5, 6])
+with col_del_refresh:
     if st.button("📊 View/Refresh Results"):
         st.session_state.show_results = not st.session_state.show_results
         if st.session_state.show_results:
             st.session_state.needs_refresh = True
-with col_clear:
     if st.button("Clear Database 🗑️"):
         with st.spinner("Deleting all data rows..."):
             delete_all_history()
-            st.success("All prediction data has been deleted!")
-with col_query:
-    user_query = st.text_input("What financial decision are you looking for today?")
-    if user_query:
-        # Step 1: Saving queries into chat history
-        st.session_state.chat_history.append({"role": "user", "query": user_query}) # Append to the session state list with role and the query's content
-        
-        with st.spinner("Your personal analyst is working, please wait..."):
-            # Step 2: Using Gemini API to extract query info
-            extracted_ticker, extracted_action = get_ticker_action_info(user_query)
-                        
-            # Step 2.1: Edge case where user did not input ticker info in the query
-            if not extracted_ticker:
-                extracted_ticker = get_latest_ticker()
-                st.toast(
-                    f"❗ **Ticker missing!** Please specify a ticker next time.\n"
-                    f"ℹ️ Auto-analyzing the latest active ticker from database: **{extracted_ticker}**"
-                )
-            
-            extracted_action_db, extracted_prob_db = get_latest_info_from_db(extracted_ticker)
+            st.toast("✅ All prediction data has been deleted!")     
 
-            # Step 2.2: Edge case when user ask general questions
-            if not extracted_action or extracted_action == "GENERAL_INFO":
-                st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
-                # If user action is general, take the action from model prediction
-                final_action = extracted_action_db 
-            else: 
-                final_action = extracted_action
+    with col_query:
+        with st.form(key="chat_form", clear_on_submit=True):
+            user_query = st.text_input("What financial decision are you looking for today?")
+            submit_button = st.form_submit_button(label="Send")
+        
+        if user_query and submit_button:
+            # Step 1: Saving queries into chat history
+            st.session_state.chat_history.append({"role": "user", "content": user_query}) # Append to the session state list with role and the query's content
+            
+            with st.spinner("Your personal analyst is working, please wait..."):
+                # Step 2: Using Gemini API to extract query info
+                extracted_ticker, extracted_action = get_ticker_action_info(user_query)
+                            
+                # Step 2.1: Edge case where user did not input ticker info in the query
+                if not extracted_ticker:
+                    extracted_ticker = get_latest_ticker()
+                    st.toast(
+                        f"❗ **Ticker missing!** Please specify a ticker next time.\n"
+                        f"ℹ️ Auto-analyzing the latest active ticker from database: **{extracted_ticker}**"
+                    )
+                
+                extracted_action_db, extracted_prob_db = get_latest_info_from_db(extracted_ticker)
+
+                # Step 2.2: Edge case when user ask general questions
+                if extracted_prob_db == 0.5 or not extracted_action_db:
+                    # CASE 1: Database do not have the ticker
+                    st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
+                    final_action = "WAIT IS BETTER ⌛" # Ép về trạng thái chờ, không cho khuyên BUY bậy bạ kkk
+                    extracted_prob_db = 0.5
+                    
+                elif not extracted_action or extracted_action == "GENERAL_INFO":
+                    # CASE 2: User asks general question
+                    st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
+                    # If user action is general, take the action from model prediction
+                    final_action = extracted_action_db 
+                else: 
+                    # CASE 3: There is 
+                    final_action = extracted_action
             
             # Step 3: Get news summary and recommendations from Gemini
             news_summary = get_news_summary(extracted_ticker)
@@ -103,10 +114,11 @@ with col_query:
             if recommended_result:
                 st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
                 st.rerun() # Reload the app after the logic is completed!
-            
+             
+
 # Show prediction history button
-if st.session_state.show_results or st.session_state.needs_refresh:
-    with st.spinner("In progress...", show_time = True):
+if st.session_state.show_results:
+    with st.spinner("In progress..."):
         time.sleep(1)
         data = get_prediction_history(limit = 20)
         if data: 
@@ -131,8 +143,19 @@ if st.session_state.show_results or st.session_state.needs_refresh:
             
             st.session_state.needs_refresh = False
         else: 
-            st.error("Database is empty! Activate model prediction to see data.")
-                
+            st.toast("🗑️ Database is empty! Activate model prediction to see data.")
+            # After display result we turn off the notification
+            st.session_state.show_results = False
+
+show_chat_history = st.toggle("Open/Close Chat History", value = False)  
+if show_chat_history:      
+    st.subheader("Financial Analysis History")
+    st.write("---")
+    
+    
+    for m in st.session_state.chat_history:
+        with st.chat_message(m["role"]):
+            st.write(m["content"]) # Display the analysed result from the chatbot          
 
 
 

@@ -9,8 +9,15 @@ def get_ticker_action_info(user_query):
     tick_act_prompt = f"""
     Analyze the following user query: {user_query} and extract the information:
     1. The stock ticker symbol mentioned (e.g., if the user enters Apple or similar words, convert it to AAPL; similarly: NVDA for NVIDIA, MSFT for Microsoft, GOOGL for Google, AMZN for Amazon, TSLA for Tesla).
-    2. Understand the context of the query and extract the action from the user's query (e.g., WAIT, SELL, BUY, HOLD, GENERAL_INFO). Example: User query: "What should I do with my Apple's stocks right now? Should I sell or buy more?", this will return AAPL as the ticket and GENERAL_INFO as the action.
-    Return ONLY a valid JSON object with the keys "ticker" and "action". Do not include any markdown formatting or backticks.
+    2. Understand the context of the query and extract the action from the user's query. This MUST be normalized into one of these exact lowercase base forms: "buy", "sell", "hold", "wait", or "general_info".
+    
+    *Example case*: If the User query is "What should I do with my Apple's stocks right now? Should I sell or buy more?", this will return "AAPL" as the ticker and "general_info" as the action (since the intent is a mixed/general inquiry).
+    
+    You MUST strictly return a JSON object with the following keys:
+    - "ticker": The stock ticker in uppercase (e.g., "AAPL", "NVDA"). If not found, return null.
+    - "action": The normalized financial action intent ("buy", "sell", "hold", "wait", or "general_info").
+    
+    Return ONLY a valid JSON object with the keys "ticker" and "action". Do not include any markdown formatting, backticks, or extra commentary outside the JSON.
     """
     
     try:
@@ -61,48 +68,51 @@ def get_news_summary(ticker):
         print(f"Error fetching for Ticker: {ticker}: {e}!")
         return None
 
-def provide_recommendation(ticker, final_action, probability, news_summary): 
+def provide_recommendation(ticker, final_action, probability, news_summary, rsi, sma_50, current_price): 
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
     
     # Choosing client models as we can choose the instruction preference
-    system_instruction = ("You are a financial advisory expert. Based on the provided context data for the specified ticker, please provide:"
-                  "1. A current overview of the ticker."
-                  "2. Valuable insights to support investment decisions at this time."
-                  "3. A perspective and recommendation for investors on whether to invest, based on the probability variable."
-                  "4. Tone requirements: professional and concise yet highlighting key details; do not hallucinate information or over-exaggerate."
-                  "5. Respond in the user's input language, keeping the information within 4–6 bullet points."
-    )
+    system_instruction = (
+    "You are a financial data assistant. Based ONLY on the provided context data, "
+    "produce a concise, professional summary. "
+    "Rules:\n"
+    "1. Never invent technical indicators, price levels, or news that are not explicitly provided in the input.\n"
+    "2. If a data field is missing or empty (e.g., no news), state that explicitly instead of speculating.\n"
+    "3. Do not issue direct buy/sell instructions ('you should invest'). Instead, present the model's signal "
+    "and probability as one data point among several risk factors, and frame conclusions as informational, "
+    "not financial advice.\n"
+    "4. Tone: plain, professional, concise. No emojis, no dramatic headings, no marketing language.\n"
+    "5. Respond in the user's input language, in 4-6 bullet points total.\n"
+)
     
     system_prompt = f"""
-    You are an elite, but friendl and trustworthy Financial Analyst.
-    Your task is to provide a deeply structured, insightful stock analysis based on quantitative ML models and qualitative news.
-
     [INPUT DATA]
     - Ticker: {ticker}
-    - System Predicted Action: {final_action}
-    - Model Confidence (Probability): {probability:.2f} (Render as percentage, e.g., {probability*100:.1f}%)
-    - Market News Summary: {news_summary if news_summary else "No recent macro news available for this ticker."}
+    - Model: XGBoost classifier trained on technical indicators
+    - Predicted Action: {final_action}
+    - Model Confidence: {probability*100:.1f}%
+    (This is the XGBoost model's predicted probability for the "{final_action}" class, 
+    based on the current RSI and SMA-50 values below. It is a statistical output, not a certainty.)
+    - Current RSI (14): {rsi}
+    - Current Price vs SMA-50: {sma_50} (price is {"above" if current_price > sma_50 else "below"} SMA-50)
+    - Market News Summary: {news_summary if news_summary else "No recent news data available."}
+    [TASK]
+    Using ONLY the data above:
+    1. Ticker overview: one neutral factual line.
+    2. Explain what the RSI and current price vs SMA50 values indicate technically 
+    (e.g., RSI > 70 = overbought, RSI < 30 = oversold, price above SMA50 = short-term uptrend bias). 
+    Only interpret the numbers given — do not invent other indicators like MACD, volume, or resistance levels 
+    unless they are explicitly provided above.
+    3. Connect these two indicators to why the XGBoost model likely predicted "{final_action}" with {probability*100:.1f}% confidence.
+    4. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
+    5. Balanced risk considerations for {ticker}'s sector (general, not fabricated specifics).
+    6. Closing note: this is a model-generated statistical signal, not financial advice.
 
-    [RESPONSE GUIDELINES & STYLE]
-    - **Tone**: Friendly, Authentic, professional, authoritative yet highly engaging. Avoid generic AI fluff ("Here is your analysis...", "Based on the provided information..."). Dive straight into the core argument!
-    - **Structure**: Break down your thinking into a razor-sharp, scannable structure using distinct bold headings and horizontal lines (---).
-    - **Depth**: Do not just state the data; *synthesize* it and explain your reasoning in bold. Explain *why* a model confidence of {probability*100:.1f}% matters with the current market news summary. If news is sparse, deduce the technical catalyst behind the {final_action} signal. State if you do not have any specific news, avoid hallucination.
-
-    [EXPECTED OUTPUT FORMAT]
-    ### 📊 Technical Catalyst & ML Alignment: {ticker}
-    * **Signal Direction**: Describe the momentum (BUY/SELL/HOLD) dynamically based on the {final_action} direction.
-    * **Confidence Layering**: Analyze the {probability*100:.1f}% probability. Explain whether this represents an aggressive bullish breakthrough or a defensive accumulation phase.
-
-    ---
-    ### 📰 Qualitative Macro Matrix (News Synthesis)
-    * Provide the news provided: {news_summary}. Connect these headlines directly to the ML model's mathematical conviction. 
-
-    ---
-    ### 🎯 Strategic Execution Strategy (The Verdict)
-    * Give concrete, actionable advice. Address the user directly with strategic weight (e.g., "For institutional or retail allocation, this indicates...").
-    * Acknowledge calculated risk factors specifically tied to {ticker} (e.g., supply chain, high valuation, or sector rotation) instead of generic market volatility.
-    """
-    
+    [STYLE]
+    - 4-6 bullet points, no headers, no emojis, no horizontal rules.
+    - Professional, calm tone. Avoid phrases like "aggressive bullish breakthrough" or "compelling opportunity".
+    - Every technical claim must trace back to the RSI or SMA-50 values provided — no invented indicators.
+""" 
     try:
         model_response = client.models.generate_content(
             model = "gemini-2.5-flash",

@@ -67,12 +67,15 @@ def make_prediction(model, scaler, data, features_list):
     prob_result = model.predict_proba(X_scaled)[:,1]
     return prob_result
 
-def save_data_to_supabase(ticker, action, probability):
+def save_data_to_supabase(ticker, action, probability, rsi, sma_50, current_price):
     try:
         data = {
             "ticker" : ticker,
             "action" : action,
-            "probability" : float(probability)
+            "probability" : float(probability),
+            "rsi" : rsi, 
+            "sma_50" : sma_50,
+            "current_price" : current_price
         }
         server_response = supabase.table("predictions").insert(data).execute()
         print("The data has been imported into 'predictions' table successfully!")
@@ -88,22 +91,22 @@ def delete_all_history():
         print(f"There is an error deleting database: {e}")
 
 
-if __name__ == "__main__":
-    tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
-    features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
-    # STEP 1: LOAD THE MODEL AND SCALER
-    scaler, rf, xgb = load_assets()
-    # STEP 2: GET THE LATEST DATA
-    df_all = get_latest_data(tickers)
+# if __name__ == "__main__":
+#     tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+#     features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
+#     # STEP 1: LOAD THE MODEL AND SCALER
+#     scaler, rf, xgb = load_assets()
+#     # STEP 2: GET THE LATEST DATA
+#     df_all = get_latest_data(tickers)
     
-    if df_all is not None:
-        latest_data = df_all.groupby('Ticker').tail(1)
-        # STEP 3: MAKE PREDICTION
-        probs = make_prediction(xgb, scaler, latest_data, features_list)
-        # STEP 4: SHOW RESULTS
-        for tick, prob in zip(latest_data['Ticker'], probs):
-            advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
-            print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
-            save_data_to_supabase(ticker = tick, action = advice, probability = prob)
+#     if df_all is not None:
+#         latest_data = df_all.groupby('Ticker').tail(1)
+#         # STEP 3: MAKE PREDICTION
+#         probs = make_prediction(xgb, scaler, latest_data, features_list)
+#         # STEP 4: SHOW RESULTS
+#         for tick, prob in zip(latest_data['Ticker'], probs):
+#             advice = "BUY" if prob > 0.7 else "WAIT IS BETTER"
+#             print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
+#             save_data_to_supabase(ticker = tick, action = advice, probability = prob)
             
         

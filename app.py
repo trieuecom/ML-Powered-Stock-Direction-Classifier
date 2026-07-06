@@ -18,10 +18,10 @@ st.title("🚀 AI Stock Direction Classifier")
 st.markdown("Data is directly stored on **Supabase Cloud**.")
 
 # Sidebar control
-st.sidebar.header("Choose your tickers to predict")
+st.sidebar.header("Give your preferred tickers to the model to see report:")
 tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']
 features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
-list_tickers = st.sidebar.multiselect("Pick tickers to predict:", options = tickers)
+list_tickers = st.sidebar.multiselect(label="Pick one/multiple tickers:", options = tickers)
 
 
 if "chat_history" not in st.session_state:
@@ -45,10 +45,16 @@ if st.sidebar.button("Activate prediction!"):
                 if df_all is not None:
                     latest_data = df_all.groupby('Ticker').tail(1)
                     probs = make_prediction(xgb, scaler, latest_data, features_list)
-                    for tick, prob in zip(latest_data['Ticker'], probs):
-                        advice = "BUY 💵" if prob > 0.7 else "WAIT IS BETTER ⌛"
-                        print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f}")
-                        save_data_to_supabase(ticker = tick, action = advice, probability = prob)
+                    for tick, prob, rsi, sma_50, close_price in zip(latest_data['Ticker'], probs, latest_data["RSI"], latest_data["SMA_50"], latest_data["Close"]):
+                        advice = "" 
+                        if prob > 0.7:
+                            advice = "buy"
+                        elif prob < 0.3:
+                            advice = "sell"
+                        else:
+                            advice = "wait"
+                        print(f" Ticker: {tick:6} | Action: {advice:16} | Probability: {prob:.2f} | Close: {close_price:.2f} | RSI: {rsi:.2f} | SMA 50: {sma_50:.2f}")
+                        save_data_to_supabase(ticker = tick, action = advice, probability = prob, rsi = rsi, sma_50 = sma_50, current_price = close_price)
                     st.sidebar.success("Prediction complete ✅")
                     st.session_state.show_results = True
                     st.session_state.needs_refresh = True    
@@ -66,74 +72,98 @@ with col_del_refresh:
             delete_all_history()
             st.toast("✅ All prediction data has been deleted!")     
 
-    with col_query:
-        with st.form(key="chat_form", clear_on_submit=True):
-            user_query = st.text_input("What financial decision are you looking for today?")
-            submit_button = st.form_submit_button(label="Send")
+with col_query:
+    with st.form(key="chat_form", clear_on_submit=True):
+        user_query = st.text_input("**What financial decision are you looking for today?** *Please provide your ticker and action to have more insightful report.*")
+        submit_button = st.form_submit_button(label="Send")
+    
+    if user_query and submit_button:
+        # Step 1: Saving queries into chat history
+        st.session_state.chat_history.append({"role": "user", "content": user_query}) # Append to the session state list with role and the query's content
         
-        if user_query and submit_button:
-            # Step 1: Saving queries into chat history
-            st.session_state.chat_history.append({"role": "user", "content": user_query}) # Append to the session state list with role and the query's content
-            
-            with st.spinner("Your personal analyst is working, please wait..."):
-                # Step 2: Using Gemini API to extract query info
-                extracted_ticker, extracted_action = get_ticker_action_info(user_query)
-                            
-                # Step 2.1: Edge case where user did not input ticker info in the query
-                if not extracted_ticker:
-                    extracted_ticker = get_latest_ticker()
-                    st.toast(
-                        f"❗ **Ticker missing!** Please specify a ticker next time.\n"
-                        f"ℹ️ Auto-analyzing the latest active ticker from database: **{extracted_ticker}**"
-                    )
-                
-                extracted_action_db, extracted_prob_db = get_latest_info_from_db(extracted_ticker)
+        with st.spinner("Your personal analyst is working, please wait..."):
+            # Step 2: Using Gemini API to extract user's current ticker and action
+            extracted_ticker, extracted_action = get_ticker_action_info(user_query)
+                        
+            # Step 3.1: Edge case where user did not input ticker info in the query
+            if not extracted_ticker:
+                st.toast(
+                    f"❗ **Ticker missing!** Please specify a ticker next time.\n"
+                )
+                st.rerun()
 
-                # Step 2.2: Edge case when user ask general questions
-                if extracted_prob_db == 0.5 or not extracted_action_db:
-                    # CASE 1: Database do not have the ticker
-                    st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
-                    final_action = "WAIT IS BETTER ⌛" # Ép về trạng thái chờ, không cho khuyên BUY bậy bạ kkk
-                    extracted_prob_db = 0.5
-                    
-                elif not extracted_action or extracted_action == "GENERAL_INFO":
-                    # CASE 2: User asks general question
-                    st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
-                    # If user action is general, take the action from model prediction
-                    final_action = extracted_action_db 
-                else: 
-                    # CASE 3: There is 
-                    final_action = extracted_action
             
-            # Step 3: Get news summary and recommendations from Gemini
-            news_summary = get_news_summary(extracted_ticker)
-            # Get recommend result from Gemini based on final action
-            recommended_result = provide_recommendation(extracted_ticker, final_action, extracted_prob_db, news_summary)
-            
-            # Append model's recommended result to chat history
-            if recommended_result:
-                st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
-                st.rerun() # Reload the app after the logic is completed!
+            extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
+            valid_action_list = ["buy", "acquire", "sell", "hold", "keep", "wait"]
+
+            # Step 3.2: Edge case when user ask general questions
+            if extracted_prob_db == 0.5 or not extracted_action_db:
+                # CASE 1: Database do not have the ticker
+                st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
+                final_action = "wait" # Ép về trạng thái chờ, không cho khuyên BUY bậy bạ kkk
+                extracted_prob_db = 0.5
+                
+            elif extracted_action not in valid_action_list or extracted_action == "":
+                # CASE 2: User asks general question
+                st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
+                # If user action is general, take the action from model prediction
+                final_action = extracted_action_db 
+            else: 
+                # CASE 3: There is 
+                final_action = extracted_action
+        
+        # Step 3: Get news summary and recommendations from Gemini
+        news_summary = get_news_summary(extracted_ticker)
+        # Get recommend result from Gemini based on final action
+        recommended_result = provide_recommendation(extracted_ticker, final_action, extracted_prob_db, news_summary, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db)
+        
+        # Append model's recommended result to chat history
+        if recommended_result:
+            st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
+            st.rerun() # Reload the app after the logic is completed!
              
 
 # Show prediction history button
 if st.session_state.show_results:
     with st.spinner("In progress..."):
-        time.sleep(1)
-        data = get_prediction_history(limit = 20)
+        data = get_prediction_history(limit = 3)
         if data: 
             df = pd.DataFrame(data)
             df['created_at'] = pd.to_datetime(df['created_at'])
             
             # Create a display table
-            cols = ["id", "created_at", "ticker", "action", "probability"]
+            cols = ["id", "created_at", "ticker", "action", "probability","rsi", "sma_50", "current_price"]
             df_display = df[cols].copy()
-            df_display["created_at"] = pd.to_datetime(df_display['created_at']).dt.strftime('%H:%M %d-%m-%Y')
-            df_display = df_display.sort_values(by = 'id', ascending = True)
+            df_display["created_at"] = pd.to_datetime(df_display['created_at'])
+            df_display["created_at"] = df_display['created_at'].dt.tz_convert('UTC').dt.strftime('%H:%M %d-%m-%Y UTC')
+            df_display = df_display.sort_values(by = 'id', ascending = False)
 
             # Success message 
             st.success("Here is the latest tickers' data!")
-            st.dataframe(df_display, width = "stretch", hide_index=True)
+            st.dataframe(df_display, width = "stretch", hide_index=True, column_config= {
+                "id" : 
+                    st.column_config.NumberColumn("ID", width="small"),
+                "created_at":
+                    st.column_config.TextColumn("Created At"),
+                "ticker":
+                    st.column_config.TextColumn("Ticker"),
+                "action" : 
+                    st.column_config.SelectboxColumn(
+                    "Action", 
+                    options = ["buy", "sell", "wait"],
+                    # Format the predictions value into friendly UI 
+                    format_func = lambda x: {"buy": "📈 BUY", "sell" : "📉 SELL", "wait" : "📊 HOLD"}.get(x, x)
+                ),
+                "probability" : 
+                    st.column_config.NumberColumn("Probability", format = "%.2f"),
+                 "rsi" : 
+                    st.column_config.NumberColumn("RSI (14 days)", format = "%.2f"),
+                 "sma_50" : 
+                    st.column_config.NumberColumn("SMA 50", format = "%.2f"),
+                 "current_price" : 
+                    st.column_config.NumberColumn("Current Price", format = "%.2f")
+
+            })
             # Drop duplicates
             df_display = df_display.drop_duplicates(subset = ['ticker'], keep = 'first')
             
@@ -149,7 +179,7 @@ if st.session_state.show_results:
 
 show_chat_history = st.toggle("Open/Close Chat History", value = False)  
 if show_chat_history:      
-    st.subheader("Financial Analysis History")
+    st.subheader("Your Personal Financial Analysis Chat History")
     st.write("---")
     
     

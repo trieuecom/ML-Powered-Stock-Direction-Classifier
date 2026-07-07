@@ -82,46 +82,51 @@ with col_query:
         st.session_state.chat_history.append({"role": "user", "content": user_query}) # Append to the session state list with role and the query's content
         
         with st.spinner("Your personal analyst is working, please wait..."):
-            # Step 2: Using Gemini API to extract user's current ticker and action
-            extracted_ticker, extracted_action = get_ticker_action_info(user_query)
-                        
-            # Step 3.1: Edge case where user did not input ticker info in the query
-            if not extracted_ticker:
-                st.toast(
-                    f"❗ **Ticker missing!** Please specify a ticker next time.\n"
-                )
-                st.rerun()
+            try:
+                # Step 2: Using Gemini API to extract user's current ticker and action, if there is an error, it will go to except block
+                extracted_ticker, extracted_action = get_ticker_action_info(user_query)
+                # Step 3.1: Edge case where user did not input ticker info in the query
+                if not extracted_ticker:
+                    st.toast("❗ **Ticker missing!** Please specify a ticker next time.")
+                    st.rerun()
 
-            
-            extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
-            valid_action_list = ["buy", "acquire", "sell", "hold", "keep", "wait"]
-
-            # Step 3.2: Edge case when user ask general questions
-            if extracted_prob_db == 0.5 or not extracted_action_db:
-                # CASE 1: Database do not have the ticker
-                st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
-                final_action = "wait" # Ép về trạng thái chờ, không cho khuyên BUY bậy bạ kkk
-                extracted_prob_db = 0.5
                 
-            elif extracted_action not in valid_action_list or extracted_action == "":
-                # CASE 2: User asks general question
-                st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
-                # If user action is general, take the action from model prediction
-                final_action = extracted_action_db 
-            else: 
-                # CASE 3: There is 
-                final_action = extracted_action
-        
-        # Step 3: Get news summary and recommendations from Gemini
-        news_summary = get_news_summary(extracted_ticker)
-        # Get recommend result from Gemini based on final action
-        recommended_result = provide_recommendation(extracted_ticker, final_action, extracted_prob_db, news_summary, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db)
-        
-        # Append model's recommended result to chat history
-        if recommended_result:
-            st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
-            st.rerun() # Reload the app after the logic is completed!
-             
+                extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
+                valid_action_list = ["buy", "acquire", "sell", "hold", "keep", "wait"]
+
+                # Step 3.2: Edge case when user ask general questions
+                if extracted_prob_db == 0.5 or not extracted_action_db:
+                    # CASE 1: Database do not have the ticker
+                    st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
+                    final_action = "wait" # Force into wait status as information is still vague
+                    extracted_prob_db = 0.5
+                    
+                elif extracted_action not in valid_action_list or extracted_action == "":
+                    # CASE 2: User asks general question
+                    st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
+                    final_action = "wait" # Force into wait status as action is still vague
+                    extracted_prob_db = 0.5
+                else: 
+                    # CASE 3: There is 
+                    final_action = extracted_action
+            # Check if Gemini Quota is ready or not
+                # Step 3: Get news summary and recommendations from Gemini
+                news_summary = get_news_summary(extracted_ticker)
+                # Get recommend result from Gemini based on final action
+                recommended_result = provide_recommendation(
+                                    extracted_ticker, 
+                                    final_action, 
+                                    extracted_prob_db, 
+                                    news_summary, 
+                                    extracted_rsi_db, 
+                                    extracted_sma50_db, 
+                                    extracted_current_price_db
+                )
+                st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
+                st.rerun() # Reload the app after the logic is completed!            
+            except Exception as e:
+                print(f"There is an error with Gemini: {e}")
+                st.warning("🤖 Our model is temporarily resting due to daily free quota limits. Please retry in a few seconds.")
 
 # Show prediction history button
 if st.session_state.show_results:

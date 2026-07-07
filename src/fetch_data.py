@@ -40,11 +40,11 @@ def get_prediction_history(limit = 10):
 def get_latest_info_from_db(ticker):
     # If there is no ticker at all, return general action and general probability
     if not ticker: 
-        return "GENERAL_INFO", 0.50, None, None
+        return "GENERAL_INFO", 0.50, None, None, None 
     try:
         # Query info that equal the uppercase ticker inputted only
         response = supabase.table("predictions") \
-            .select("action, probability", "rsi", "sma_50") \
+            .select("action, probability", "rsi", "sma_50", "current_price") \
             .eq("ticker", ticker.upper()) \
             .order("created_at", desc=True) \
             .limit(1) \
@@ -52,9 +52,15 @@ def get_latest_info_from_db(ticker):
         
         if response.data and len(response.data) > 0:
             latest_info = response.data[0]
-            return latest_info["action"], latest_info["probability"], latest_info["rsi"], latest_info["sma_50"]
-        return "GENERAL_INFO", 0.50, None, None
+            return (
+                latest_info.get("action", "wait"), 
+                latest_info.get("probability", 0.5), 
+                latest_info.get("rsi"), 
+                latest_info.get("sma_50"), 
+                latest_info.get("current_price")
+            )
+        return "GENERAL_INFO", 0.50, None, None, None
     except Exception as e:
-        st.error(f"There is an error: {e}")
-        return None
+        print(f"There is an error from get_latest_info_from_db: {e}")
+        return None, None, None, None, None
     

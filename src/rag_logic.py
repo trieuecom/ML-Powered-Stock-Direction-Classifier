@@ -88,30 +88,41 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
     system_prompt = f"""
     [INPUT DATA]
     - Ticker: {ticker}
-    - Model: XGBoost classifier trained on technical indicators
-    - Predicted Action: {final_action}
+    - Model: The model trained on technical indicators
+    - Predicted Action: {final_action.upper()}
     - Model Confidence: {probability*100:.1f}%
-    (This is the XGBoost model's predicted probability for the "{final_action}" class, 
+    (This is the model's predicted probability for the "{final_action}" class, 
     based on the current RSI and SMA-50 values below. It is a statistical output, not a certainty.)
-    - Current RSI (14): {rsi}
-    - Current Price vs SMA-50: {sma_50} (price is {"above" if current_price > sma_50 else "below"} SMA-50)
+    - Current RSI (14): {rsi:.2f}
+    - Current Price: {current_price:.2f} USD
+    - SMA-50: {sma_50:.2f} USD (price is {"above" if current_price > sma_50 else "below"} SMA-50)
     - Market News Summary: {news_summary if news_summary else "No recent news data available."}
     [TASK]
     Using ONLY the data above:
-    1. Ticker overview: one neutral factual line.
+    1. Ticker summary: one neutral line summarize all the bullet points below.
     2. Explain what the RSI and current price vs SMA50 values indicate technically 
     (e.g., RSI > 70 = overbought, RSI < 30 = oversold, price above SMA50 = short-term uptrend bias). 
     Only interpret the numbers given — do not invent other indicators like MACD, volume, or resistance levels 
     unless they are explicitly provided above.
-    3. Connect these two indicators to why the XGBoost model likely predicted "{final_action}" with {probability*100:.1f}% confidence.
+    3. Connect these two indicators to why the XGBoost model likely predicted "{final_action.upper()}" with {probability*100:.1f}% confidence.
     4. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
-    5. Balanced risk considerations for {ticker}'s sector (general, not fabricated specifics).
-    6. Closing note: this is a model-generated statistical signal, not financial advice.
+    5. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector.
+    6. P/s: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
 
     [STYLE]
-    - 4-6 bullet points, no headers, no emojis, no horizontal rules.
+    - Exactly 6 bullet points total, no headers, no emojis, no horizontal rules.
     - Professional, calm tone. Avoid phrases like "aggressive bullish breakthrough" or "compelling opportunity".
     - Every technical claim must trace back to the RSI or SMA-50 values provided — no invented indicators.
+    - Use **bold** (markdown) ONLY on the following, and nothing else:
+        - The ticker symbol
+        - Current RSI for {ticker}
+        - Current Price for {ticker}
+        - Current SMA-50 for {ticker}
+        - The predicted action (buy/sell/hold/wait) and its confidence percentage
+        - The RSI value and its label (overbought/oversold/neutral)
+        - Whether price is above or below SMA-50
+        - The phrase "not financial advice" in the closing line
+    - Do not bold entire sentences, or generic phrases — bold is reserved strictly for the data points above so it stays scannable, not noisy.
 """ 
     try:
         model_response = client.models.generate_content(

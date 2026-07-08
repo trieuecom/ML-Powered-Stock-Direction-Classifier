@@ -44,21 +44,37 @@ def get_news_summary(ticker):
     try:
         tick = yf.Ticker(ticker) # initialize an Ticker object 
         news_list = tick.news # retrieve a list a news for the ticker
+        print(news_list[0])
         if not news_list:
             print(f"There is no news for {ticker}")
             return None
         
         ticker_context = "" # placeholder for context
+        count = 0 # use count to count until reach n number of stories
         
-        for i, news in enumerate(news_list[:5]):
-            title = news.get('title', "There is no title for the article.")
-            publisher = news.get('publisher', "There is no publisher for the article.")
-            summary = news.get('summary', "There is no summary for the article.")
+        for news in news_list:
+            # Extract the content
+            content = news.get("content", {})
+            # Skip video content, only keep text t
+            if content.get("contentType") == "VIDEO":
+                continue
+            
+            if count >= 5: # Count if the amount of ticker context is larger than 5 then stop
+                break
+            title = content.get('title', "There is no title for the article.")
+            publisher = content.get('provider', {}).get("displayName", "There is no publisher for the article.")
+            summary = content.get('summary', "There is no summary for the article.")
+            
             # Generate context
-            ticker_context += f"Article: {i+1}\n"
+            ticker_context += f"Article: {count+1}\n"
             ticker_context += f"Title: {title}\n"
             ticker_context += f"Publisher: {publisher}\n"
-            ticker_context += f"Summary: {summary}"
+            ticker_context += f"Summary: {summary}\n\n"
+            
+            if ticker_context:
+                count += 1
+            else:
+                return None
             
         if ticker_context: # check whether there is any generated context
             return ticker_context.strip() # remove spaces
@@ -107,21 +123,18 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
     3. Connect these two indicators to why the XGBoost model likely predicted "{final_action.upper()}" with {probability*100:.1f}% confidence.
     4. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
     5. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector.
-    6. P/s: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
+    6. Write this in italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
 
     [STYLE]
-    - Exactly 6 bullet points total, no headers, no emojis, no horizontal rules.
+    - Exactly 7 bullet points total, no headers, no emojis, no horizontal rules.
     - Professional, calm tone. Avoid phrases like "aggressive bullish breakthrough" or "compelling opportunity".
     - Every technical claim must trace back to the RSI or SMA-50 values provided — no invented indicators.
     - Use **bold** (markdown) ONLY on the following, and nothing else:
-        - The ticker symbol
         - Current RSI for {ticker}
         - Current Price for {ticker}
         - Current SMA-50 for {ticker}
-        - The predicted action (buy/sell/hold/wait) and its confidence percentage
         - The RSI value and its label (overbought/oversold/neutral)
-        - Whether price is above or below SMA-50
-        - The phrase "not financial advice" in the closing line
+    - Write bonus word in bold in bullet point 1 and bullet point 5 for word "Ticker summary:" and "Conclusion:" at the start of the sentence.
     - Do not bold entire sentences, or generic phrases — bold is reserved strictly for the data points above so it stays scannable, not noisy.
 """ 
     try:

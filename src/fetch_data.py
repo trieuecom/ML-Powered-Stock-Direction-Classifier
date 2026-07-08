@@ -1,5 +1,6 @@
 from supabase import create_client
 import streamlit as st
+import uuid
 
 # Do not delete these variables, important info for importing data to Supabase
 url = st.secrets["SUPABASE_URL"]
@@ -15,8 +16,8 @@ def get_prediction_history(limit = 10):
             .order("created_at", desc=True) \
             .limit(limit) \
             .execute()
-        return response.data
-        
+        if response.data:
+            return response.data  
     except Exception as e:
         st.error(f"There is an error: {e}")
         return None
@@ -44,7 +45,7 @@ def get_latest_info_from_db(ticker):
     try:
         # Query info that equal the uppercase ticker inputted only
         response = supabase.table("predictions") \
-            .select("action, probability", "rsi", "sma_50", "current_price") \
+            .select("action, probability, rsi, sma_50, current_price") \
             .eq("ticker", ticker.upper()) \
             .order("created_at", desc=True) \
             .limit(1) \
@@ -64,3 +65,25 @@ def get_latest_info_from_db(ticker):
         print(f"There is an error from get_latest_info_from_db: {e}")
         return None, None, None, None, None
     
+def save_chat_message(session_id, role, content):
+    try:
+        response = supabase.table("chat_history") \
+            .insert({"session_id" : session_id, "role" : role, "content" : content}) \
+            .execute()
+    except Exception as e:
+        st.error(f"There is an error: {e}")
+        return None
+    
+def load_chat_history(session_id):
+    try:
+        # Retrieve chat messages that have the session id of user
+        response = supabase.table("chat_history") \
+            .select("role, content") \
+            .eq("session_id", session_id) \
+            .order("created_at", desc=True) \
+            .execute()
+        if response.data:
+            return response.data
+    except Exception as e:
+        st.error(f"There is an error: {e}")
+        return None

@@ -4,6 +4,7 @@ import time
 from src.predict import *
 from src.fetch_data import *
 from src.rag_logic import *
+from datetime import datetime
 
 # Configure the application page
 st.set_page_config(page_title = "Stock Direction App", 
@@ -23,13 +24,19 @@ tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA']
 features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
 list_tickers = st.sidebar.multiselect(label="Pick one/multiple tickers:", options = tickers)
 
+if "session" not in st.query_params: # Streamlit API to write query parameters in URL
+    st.query_params.session = str(uuid.uuid4())
 
+session_id = st.query_params.session # If there is a session already, there will be a session id
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+    st.session_state.chat_history = load_chat_history(session_id)
+    
 if "needs_refresh" not in st.session_state:
     st.session_state.needs_refresh = False
 if "show_results" not in st.session_state:
     st.session_state.show_results = False
+if "show_chat_history" not in st.session_state:
+    st.session_state.show_chat_history = False
 
 # Main prediction button
 if st.sidebar.button("Activate prediction!"):
@@ -78,10 +85,11 @@ with col_query:
         submit_button = st.form_submit_button(label="Send")
     
     if user_query and submit_button:
+        st.session_state.show_chat_history = True
         # Step 1: Saving queries into chat history
-        st.session_state.chat_history.append({"role": "user", "content": user_query}) # Append to the session state list with role and the query's content
+        st.session_state.chat_history.append({"role": "user", "content": user_query, "timestamp": datetime.now()}) # Append to the session state list with role and the query's content
         
-        with st.spinner("Your personal analyst is working, please wait..."):
+        with st.spinner("Thinking..."):
             try:
                 # Step 2: Using Gemini API to extract user's current ticker and action, if there is an error, it will go to except block
                 extracted_ticker, extracted_action = get_ticker_action_info(user_query)
@@ -182,15 +190,20 @@ if st.session_state.show_results:
             # After display result we turn off the notification
             st.session_state.show_results = False
 
-show_chat_history = st.toggle("Open/Close Chat History", value = False)  
-if show_chat_history:      
+st.toggle("Open/Close Chat History", key = "show_chat_history") # Use key in toggle to save the show chat history session state  
+             
+if st.session_state.show_chat_history:
     st.subheader("Your Personal Financial Analysis Chat History")
     st.write("---")
-    
-    
     for m in st.session_state.chat_history:
         with st.chat_message(m["role"]):
-            st.write(m["content"]) # Display the analysed result from the chatbot          
+            st.write(m["content"]) # Display the analysed result from the chatbot
+            if "timestamp" in m:
+                st.caption(m["timestamp"].strftime("%H:%M %d-%m-%y"))
+    
+    
+    
+    
 
 
 

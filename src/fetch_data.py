@@ -80,10 +80,11 @@ def load_chat_history(session_id):
         response = supabase.table("chat_history") \
             .select("role, content") \
             .eq("session_id", session_id) \
-            .order("created_at", desc=True) \
+            .order("created_at", desc=False) \
             .execute()
         if response.data:
             return response.data
+        return []
     except Exception as e:
         st.error(f"There is an error: {e}")
-        return None
+        return []

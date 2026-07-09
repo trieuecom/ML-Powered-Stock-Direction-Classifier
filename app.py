@@ -1,10 +1,12 @@
 import streamlit as st
 import pandas as pd
 import time 
+import uuid
 from src.predict import *
 from src.fetch_data import *
 from src.rag_logic import *
 from datetime import datetime
+
 
 # Configure the application page
 st.set_page_config(page_title = "Stock Direction App", 
@@ -25,12 +27,11 @@ features_list = ['RSI', 'SMA_50', 'Close', 'Volume']
 list_tickers = st.sidebar.multiselect(label="Pick one/multiple tickers:", options = tickers)
 
 if "session" not in st.query_params: # Streamlit API to write query parameters in URL
-    st.query_params.session = str(uuid.uuid4())
+    st.query_params.session = str(uuid.uuid4()) # Create a random session id to store in database
 
 session_id = st.query_params.session # If there is a session already, there will be a session id
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = load_chat_history(session_id)
-    
 if "needs_refresh" not in st.session_state:
     st.session_state.needs_refresh = False
 if "show_results" not in st.session_state:
@@ -88,7 +89,7 @@ with col_query:
         st.session_state.show_chat_history = True
         # Step 1: Saving queries into chat history
         st.session_state.chat_history.append({"role": "user", "content": user_query, "timestamp": datetime.now()}) # Append to the session state list with role and the query's content
-        
+        save_chat_message(session_id, "user", user_query)
         with st.spinner("Thinking..."):
             try:
                 # Step 2: Using Gemini API to extract user's current ticker and action, if there is an error, it will go to except block
@@ -131,6 +132,7 @@ with col_query:
                                     extracted_current_price_db
                 )
                 st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
+                save_chat_message(session_id, "assistant", recommended_result)
                 st.rerun() # Reload the app after the logic is completed!            
             except Exception as e:
                 print(f"There is an error with Gemini: {e}")

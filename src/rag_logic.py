@@ -122,7 +122,7 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
     unless they are explicitly provided above.
     3. Connect these two indicators to why the XGBoost model likely predicted "{final_action.upper()}" with {probability*100:.1f}% confidence.
     4. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
-    5. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector.
+    5. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector. Give final short-term and long term decision based on conclusion in short 2-3 words for each.
     6. Write this in italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
 
     [STYLE]
@@ -134,7 +134,7 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
         - Current Price for {ticker}
         - Current SMA-50 for {ticker}
         - The RSI value and its label (overbought/oversold/neutral)
-    - Write bonus word in bold in bullet point 1 and bullet point 5 for word "Ticker summary:" and "Conclusion:" at the start of the sentence.
+    - Write bonus word in bold in bullet point 1 and bullet point 5 for word "Ticker summary:", "Conclusion:", "Short-term decision:", and "Long-term decision:" at the start of the sentence.
     - Do not bold entire sentences, or generic phrases — bold is reserved strictly for the data points above so it stays scannable, not noisy.
 """ 
     try:

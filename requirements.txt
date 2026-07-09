@@ -8,4 +8,5 @@ streamlit==1.53.1
 supabase==2.31.0
 yfinance==0.2.66
 google-genai
+xgboost==3.3.0
 

@@ -101,7 +101,9 @@ with col_query:
 
                 
                 extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
-                valid_action_list = ["buy", "acquire", "sell", "hold", "keep", "wait"]
+                valid_action_list = ["buy", "acquire", "purchase", "long", "sell", "dump", "short", "liquidate", "hold", "keep", "wait", "neutral"]
+                
+                extracted_action = extracted_action.strip().lower()
 
                 # Step 3.2: Edge case when user ask general questions
                 if extracted_prob_db == 0.5 or not extracted_action_db:
@@ -117,13 +119,14 @@ with col_query:
                     extracted_prob_db = 0.5
                 else: 
                     # CASE 3: There is 
-                    final_action = extracted_action
+                    final_action = extracted_action_db.lower()
             # Check if Gemini Quota is ready or not
                 # Step 3: Get news summary and recommendations from Gemini
                 news_summary = get_news_summary(extracted_ticker)
                 # Get recommend result from Gemini based on final action
                 recommended_result = provide_recommendation(
-                                    extracted_ticker, 
+                                    extracted_ticker,
+                                    extracted_action, 
                                     final_action, 
                                     extracted_prob_db, 
                                     news_summary, 

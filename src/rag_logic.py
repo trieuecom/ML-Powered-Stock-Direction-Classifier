@@ -84,8 +84,9 @@ def get_news_summary(ticker):
         print(f"Error fetching for Ticker: {ticker}: {e}!")
         return None
 
-def provide_recommendation(ticker, final_action, probability, news_summary, rsi, sma_50, current_price): 
+def provide_recommendation(ticker, user_action, final_action, probability, news_summary, rsi, sma_50, current_price): 
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+
     
     # Choosing client models as we can choose the instruction preference
     system_instruction = (
@@ -100,10 +101,11 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
     "4. Tone: plain, professional, concise. No emojis, no dramatic headings, no marketing language.\n"
     "5. Respond in the user's input language, in 4-6 bullet points total.\n"
 )
-    
+    user_action = user_action.upper() if user_action else "GENERAL INQUIRY"
     system_prompt = f"""
     [INPUT DATA]
     - Ticker: {ticker}
+    - User Intent: Wants to know if they should "{user_action}" this stock.
     - Model: The model trained on technical indicators
     - Predicted Action: {final_action.upper()}
     - Model Confidence: {probability*100:.1f}%
@@ -115,26 +117,34 @@ def provide_recommendation(ticker, final_action, probability, news_summary, rsi,
     - Market News Summary: {news_summary if news_summary else "No recent news data available."}
     [TASK]
     Using ONLY the data above:
-    1. Ticker summary: one neutral line summarize all the bullet points below.
+    1. Compare the user's intended action **{user_action.upper()}** with the model's predicted signal **{final_action.upper()}**.
+       - If they MATCH: confirm alignment in one sentence, e.g.:
+       "The model's **{final_action.upper()}** signal aligns with the user's intent to {user_action}, 
+       supported by a {probability*100:.1f}% confidence level."
+       - If they CONTRADICT (e.g., user wants to sell/buy but model signals otherwise): state the 
+       mismatch clearly and neutrally in one sentence, e.g.:
+       "The model currently signals **{final_action.upper()}** at {probability*100:.1f}% confidence, 
+       which does not align with your intent to {user_action.upper()}."
+    Do not use phrases like "action to WAIT" — always phrase it as "signals WAIT" or "predicted WAIT".    
     2. Explain what the RSI and current price vs SMA50 values indicate technically 
     (e.g., RSI > 70 = overbought, RSI < 30 = oversold, price above SMA50 = short-term uptrend bias). 
     Only interpret the numbers given — do not invent other indicators like MACD, volume, or resistance levels 
     unless they are explicitly provided above.
-    3. Connect these two indicators to why the XGBoost model likely predicted "{final_action.upper()}" with {probability*100:.1f}% confidence.
-    4. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
-    5. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector. Give final short-term and long term decision based on conclusion in short 2-3 words for each.
-    6. Write this in italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
+    3. If Market News Summary is empty, state explicitly that no news data supports or contradicts the signal.
+    4. Conclusion: Critical analysis based on generated info from bullet points 1 to 4, short, concise balanced risk considerations for {ticker}'s sector. Give final short-term and long term decision based on conclusion in short 2-3 words for each.
+    5. Write this in italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
 
     [STYLE]
-    - Exactly 7 bullet points total, no headers, no emojis, no horizontal rules.
+    - Exactly 6 bullet points total, no headers, no emojis, no horizontal rules. Short-term decision and long-term decision in one bullet point.
     - Professional, calm tone. Avoid phrases like "aggressive bullish breakthrough" or "compelling opportunity".
     - Every technical claim must trace back to the RSI or SMA-50 values provided — no invented indicators.
     - Use **bold** (markdown) ONLY on the following, and nothing else:
-        - Current RSI for {ticker}
-        - Current Price for {ticker}
-        - Current SMA-50 for {ticker}
+        - {user_action.upper()} and {probability*100:.1f}%
+        - Current RSI for {ticker}:
+        - Current Price for {ticker}:
+        - Current SMA-50 for {ticker}:
         - The RSI value and its label (overbought/oversold/neutral)
-    - Write bonus word in bold in bullet point 1 and bullet point 5 for word "Ticker summary:", "Conclusion:", "Short-term decision:", and "Long-term decision:" at the start of the sentence.
+    - Write bonus word in bold in bullet point 1 and bullet point 5 for word "Model prediction explained:", "Market news:", "Conclusion:", "Short-term decision:", and "Long-term decision:" at the start of the sentence.
     - Do not bold entire sentences, or generic phrases — bold is reserved strictly for the data points above so it stays scannable, not noisy.
 """ 
     try:

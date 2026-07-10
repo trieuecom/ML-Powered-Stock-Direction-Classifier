@@ -95,9 +95,16 @@ with col_query:
                 # Step 2: Using Gemini API to extract user's current ticker and action, if there is an error, it will go to except block
                 extracted_ticker, extracted_action = get_ticker_action_info(user_query)
                 # Step 3.1: Edge case where user did not input ticker info in the query
+                
+                # If the query is too general without the ticker info, push a notification for the user to specify the ticker
                 if not extracted_ticker:
-                    st.toast("❗ **Ticker missing!** Please specify a ticker next time.")
-                    st.rerun()
+                   missing_ticker_msg = (
+                        "❗ Please specify a ticker for me to help you better analyze the market. "
+                        "For example: \"Should I buy AAPL?\" or \"What's the outlook for MSFT?\""
+                    )
+                   st.session_state.chat_history.append({"role": "assistant", "content": missing_ticker_msg})
+                   save_chat_message(session_id, "assistant", missing_ticker_msg)
+                   st.rerun()
 
                 
                 extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
@@ -120,16 +127,16 @@ with col_query:
                 else: 
                     # CASE 3: There is 
                     final_action = extracted_action_db.lower()
-            # Check if Gemini Quota is ready or not
-                # Step 3: Get news summary and recommendations from Gemini
-                news_summary = get_news_summary(extracted_ticker)
+                    
+                # Get all news if there is more than one extracted ticker
+                all_news = get_all_tickers_news(tickers, main_ticker=extracted_ticker)
                 # Get recommend result from Gemini based on final action
                 recommended_result = provide_recommendation(
                                     extracted_ticker,
                                     extracted_action, 
                                     final_action, 
                                     extracted_prob_db, 
-                                    news_summary, 
+                                    all_news, 
                                     extracted_rsi_db, 
                                     extracted_sma50_db, 
                                     extracted_current_price_db
@@ -137,9 +144,13 @@ with col_query:
                 st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
                 save_chat_message(session_id, "assistant", recommended_result)
                 st.rerun() # Reload the app after the logic is completed!            
+                
             except Exception as e:
                 print(f"There is an error with Gemini: {e}")
-                st.warning("🤖 Our model is temporarily resting due to daily free quota limits. Please retry in a few seconds.")
+                error_msg = "🤖 Our model is temporarily resting due to daily free quota limits. Please retry in a few seconds."
+                st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+                save_chat_message(session_id, "assistant", error_msg)
+                st.warning(error_msg)
 
 # Show prediction history button
 if st.session_state.show_results:

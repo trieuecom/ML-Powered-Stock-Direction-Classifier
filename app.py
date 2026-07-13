@@ -5,7 +5,8 @@ import uuid
 from src.predict import *
 from src.fetch_data import *
 from src.rag_logic import *
-from datetime import datetime
+from datetime import datetime, timezone
+from dateutil import parser as date_parser
 
 
 # Configure the application page
@@ -105,29 +106,40 @@ with col_query:
                    st.session_state.chat_history.append({"role": "assistant", "content": missing_ticker_msg})
                    save_chat_message(session_id, "assistant", missing_ticker_msg)
                    st.rerun()
-
+                   
                 
-                extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db = get_latest_info_from_db(extracted_ticker)
+                extracted_action_db, extracted_prob_db, extracted_rsi_db, extracted_sma50_db, extracted_current_price_db, extracted_date_db = get_latest_info_from_db(extracted_ticker)
                 valid_action_list = ["buy", "acquire", "purchase", "long", "sell", "dump", "short", "liquidate", "hold", "keep", "wait", "neutral"]
                 
                 extracted_action = extracted_action.strip().lower()
 
+                
                 # Step 3.2: Edge case when user ask general questions
                 if extracted_prob_db == 0.5 or not extracted_action_db:
                     # CASE 1: Database do not have the ticker
                     st.toast(f"⚠️ {extracted_ticker} is not predicted by the system yet, we will give you general information.")
                     final_action = "wait" # Force into wait status as information is still vague
-                    extracted_prob_db = 0.5
+                    final_prob = 0.5
                     
                 elif extracted_action not in valid_action_list or extracted_action == "":
                     # CASE 2: User asks general question
                     st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
                     final_action = "wait" # Force into wait status as action is still vague
-                    extracted_prob_db = 0.5
+                    final_prob = 0.5
                 else: 
-                    # CASE 3: There is 
+                    # CASE 3: Pick the latest action from the ticker info in the database
                     final_action = extracted_action_db.lower()
-                    
+                    final_prob = extracted_prob_db
+                
+                # CASE 4: Check if the data is stale or not to make sure the user notice the latest data
+                is_date_stale = False
+                if extracted_date_db:
+                    predicted_date = date_parser.parse(extracted_date_db).astimezone(timezone.utc).date().strftime("%d-%m-%Y")
+                    today_date = datetime.now(timezone.utc).date().strftime("%d-%m-%Y")
+                    print(predicted_date, today_date)
+                    if predicted_date != today_date:
+                        is_date_stale = True
+                        st.toast(f"⚠️ The data for {extracted_ticker} was last predicted on {predicted_date}. Activate the prediction to retrieve latest data!")
                 # Get all news if there is more than one extracted ticker
                 all_news = get_all_tickers_news(tickers, main_ticker=extracted_ticker)
                 # Get recommend result from Gemini based on final action
@@ -135,11 +147,12 @@ with col_query:
                                     extracted_ticker,
                                     extracted_action, 
                                     final_action, 
-                                    extracted_prob_db, 
+                                    final_prob, 
                                     all_news, 
                                     extracted_rsi_db, 
                                     extracted_sma50_db, 
-                                    extracted_current_price_db
+                                    extracted_current_price_db,
+                                    predicted_date
                 )
                 st.session_state.chat_history.append({"role": "assistant", "content": recommended_result})
                 save_chat_message(session_id, "assistant", recommended_result)

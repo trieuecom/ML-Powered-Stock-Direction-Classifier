@@ -3,6 +3,7 @@ import json
 import time
 from google import genai
 from google.genai import types
+from datetime import datetime, timezone
 import streamlit as st
 
 def get_ticker_action_info(user_query):
@@ -89,7 +90,7 @@ def get_all_tickers_news(tickers, main_ticker=None, main_limit=5, other_limit=2)
         all_news[tick] = summary if summary else "No recent news data available."
     return all_news
 
-def provide_recommendation(ticker, user_action, final_action, probability, all_news, rsi, sma_50, current_price, max_entries=2): 
+def provide_recommendation(ticker, user_action, final_action, probability, all_news, rsi, sma_50, current_price, predicted_date, max_entries=2): 
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
     # Choosing client models as we can choose the instruction preference
@@ -121,7 +122,7 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
         if tick == ticker:
             continue
         other_news_text += f"\n[{tick}]\n{summary}\n"
-        
+    today_date = datetime.now(timezone.utc).date().strftime("%d-%m-%Ys")
     
     system_prompt = f"""
     [INPUT DATA]
@@ -137,9 +138,12 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
     - SMA-50: {sma_display} {trend_note}
     - Market News Summary for {ticker}: {main_news}
     - Broader Market Context (other tracked tickers): {other_news_text if other_news_text else "No data for other tickers."}
+    - Data based on date: {predicted_date}
     [TASK]
     Using ONLY the data above:
-    1. Compare the user's intended action **{user_action.upper()}** with the model's predicted signal **{final_action.upper()}**.
+    0. "Note: the latest available data for {ticker} is from {predicted_date}; treat the analysis below with caution if the date is different from today ({today_date}), as market conditions may have changed."
+    1. "Model prediction explained:" 
+    Compare the user's intended action **{user_action.upper()}** with the model's predicted signal **{final_action.upper()}**.
     - If user_action is "GENERAL INQUIRY" or "GENERAL_INFO" (no specific buy/sell/hold intent stated): 
     skip the match/contradict comparison entirely. Instead, simply present the model's 
     signal as informational context, e.g.: "The model currently signals **{final_action.upper()}** at **{probability*100:.1f}%** confidence, based on current technical indicators."
@@ -162,7 +166,7 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
     5. Write this in italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
 
     [STYLE]
-    - Exactly 6 bullet points total, no headers, no emojis, no horizontal rules. Short-term decision and long-term decision in one bullet point.
+    - IMPORTANT: EXACTLY 8 BULLET POINTS IN TOTAL, no headers, no emojis, no horizontal rules. Short-term decision and long-term decision in one bullet point.
     - Professional, calm tone. Avoid phrases like "aggressive bullish breakthrough" or "compelling opportunity".
     - Every technical claim must trace back to the RSI or SMA-50 values provided — no invented indicators.
     - Use **bold** (markdown) ONLY on the following, and nothing else, act as a heading for each sentence:
@@ -175,14 +179,15 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
     - Do not bold entire sentences, or generic phrases — bold is reserved strictly for the data points above so it stays scannable, not noisy.
     
     [EXAMPLE FORMAT]
-    Model prediction explained: The model currently signals WAIT at 42.9% confidence, which does not align with your intent to BUY.
-    Current RSI for NVDA: The RSI value of 49.67 indicates a neutral condition, as it is neither above 70 (overbought) nor below 30 (oversold).
-    Current Price for NVDA: At 202.78 USD, the price is below the Current SMA-50 for NVDA: of 209.24 USD, which typically suggests a short-term downtrend bias.
-    Market news: News for NVDA includes a report suggesting potential stock buybacks following a significant market value change. Additionally, the successful Nasdaq debut of chip giant SK Hynix, an AI powerhouse, is noted in the broader semiconductor sector.
-    Broader market context: The broader market context indicates that "Magnificent 7" stocks, which include NVDA, are trading at their cheapest valuation in over a decade. Furthermore, Corning has partnered with Nvidia to expand domestic manufacturing capacity for advanced optical solutions supporting AI computing.
-    Conclusion: The model's "WAIT" signal, supported by a low confidence level and a short-term downtrend bias from the price being below the SMA-50, contrasts with the user's "BUY" intent. While the RSI is neutral, broader market context shows NVDA as part of the "Magnificent 7" trading at lower valuations and engaging in strategic AI infrastructure partnerships. Short-term decision: X. Long-term decision: Y.
+    - **Model prediction explained:**  The model currently signals WAIT at 42.9% confidence, which does not align with your intent to BUY.
+    - **Current RSI for NVDA:** The RSI value of 49.67 indicates a neutral condition, as it is neither above 70 (overbought) nor below 30 (oversold).
+    - **Current Price for NVDA:** At 202.78 USD, the price is below the Current SMA-50 for NVDA: of 209.24 USD, which typically suggests a short-term downtrend bias.
+    - **Market news:** News for NVDA includes a report suggesting potential stock buybacks following a significant market value change. Additionally, the successful Nasdaq debut of chip giant SK Hynix, an AI powerhouse, is noted in the broader semiconductor sector.
+    - **Broader market context:** The broader market context indicates that "Magnificent 7" stocks, which include NVDA, are trading at their cheapest valuation in over a decade. Furthermore, Corning has partnered with Nvidia to expand domestic manufacturing capacity for advanced optical solutions supporting AI computing.
+    - **Conclusion:** The model's "WAIT" signal, supported by a low confidence level and a short-term downtrend bias from the price being below the SMA-50, contrasts with the user's "BUY" intent. While the RSI is neutral, broader market context shows NVDA as part of the "Magnificent 7" trading at lower valuations and engaging in strategic AI infrastructure partnerships. 
+    - **Short-term decision:** X. **Long-term decision:** Y.
     
-    Italic: This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.
+    *This is a model-generated statistical signal, providing data as reference for supplementing investors' decision making, not direct financial advice.*
     
     """ 
     
@@ -201,6 +206,7 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
             return model_response.text
             
         except Exception as e:
+            print(f"Error: {e}")
             if attempt < max_entries and "503" in str(e):
                 time.sleep(3) # Wait for 3 seconds then retry
                 continue

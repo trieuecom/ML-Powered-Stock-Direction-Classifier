@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import streamlit as st
 
 def get_ticker_action_info(user_query):
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"], vertexai=False)
     tick_act_prompt = f"""
     Analyze the following user query: {user_query} and extract the information:
     1. The stock ticker symbol mentioned (e.g., if the user enters Apple or similar words, convert it to AAPL; similarly: NVDA for NVIDIA, MSFT for Microsoft, GOOGL for Google, AMZN for Amazon, TSLA for Tesla).
@@ -91,7 +91,7 @@ def get_all_tickers_news(tickers, main_ticker=None, main_limit=5, other_limit=2)
     return all_news
 
 def provide_recommendation(ticker, user_action, final_action, probability, all_news, rsi, sma_50, current_price, predicted_date, max_entries=2): 
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"], vertexai=False)
 
     # Choosing client models as we can choose the instruction preference
     system_instruction = (

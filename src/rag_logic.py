@@ -122,7 +122,7 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
         if tick == ticker:
             continue
         other_news_text += f"\n[{tick}]\n{summary}\n"
-    today_date = datetime.now(timezone.utc).date().strftime("%d-%m-%Ys")
+    today_date = datetime.now(timezone.utc).date().strftime("%d-%m-%Y")
     
     system_prompt = f"""
     [INPUT DATA]

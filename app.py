@@ -123,7 +123,7 @@ with col_query:
                     
                 elif extracted_action not in valid_action_list or extracted_action == "":
                     # CASE 2: User asks general question
-                    st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?")
+                    st.toast("Please tell us more on your financial action for us to provide you with a more detailed analysis. Do you want to sell, buy or keep any stocks?", duration = 7)
                     final_action = "wait" # Force into wait status as action is still vague
                     final_prob = 0.5
                 else: 
@@ -139,7 +139,7 @@ with col_query:
                     print(predicted_date, today_date)
                     if predicted_date != today_date:
                         is_date_stale = True
-                        st.toast(f"⚠️ The data for {extracted_ticker} was last predicted on {predicted_date}. Activate the prediction to retrieve latest data!")
+                        st.toast(f"⚠️ The data for {extracted_ticker} was last predicted on {predicted_date}. Activate the prediction to retrieve latest data!", duration = 7)
                 # Get all news if there is more than one extracted ticker
                 all_news = get_all_tickers_news(tickers, main_ticker=extracted_ticker)
                 # Get recommend result from Gemini based on final action
@@ -215,7 +215,7 @@ if st.session_state.show_results:
             
             st.session_state.needs_refresh = False
         else: 
-            st.toast("🗑️ Database is empty! Activate model prediction to see data.")
+            st.toast("🗑️ Database is empty! Activate model prediction to see data.", duration = 5)
             # After display result we turn off the notification
             st.session_state.show_results = False
 

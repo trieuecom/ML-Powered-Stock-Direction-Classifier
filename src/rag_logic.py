@@ -6,8 +6,13 @@ from google.genai import types
 from datetime import datetime, timezone
 import streamlit as st
 
+@st.cache_resource
+def get_gemini_client():
+    return genai.Client(api_key=st.secrets["GEMINI_API_KEY"], vertexai=False)
+
+client = get_gemini_client()
+
 def get_ticker_action_info(user_query):
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"], vertexai=False)
     tick_act_prompt = f"""
     Analyze the following user query: {user_query} and extract the information:
     1. The stock ticker symbol mentioned (e.g., if the user enters Apple or similar words, convert it to AAPL; similarly: NVDA for NVIDIA, MSFT for Microsoft, GOOGL for Google, AMZN for Amazon, TSLA for Tesla).
@@ -91,8 +96,7 @@ def get_all_tickers_news(tickers, main_ticker=None, main_limit=5, other_limit=2)
     return all_news
 
 def provide_recommendation(ticker, user_action, final_action, probability, all_news, rsi, sma_50, current_price, predicted_date, max_entries=2): 
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"], vertexai=False)
-
+    
     # Choosing client models as we can choose the instruction preference
     system_instruction = (
     "You are a financial data assistant. Based ONLY on the provided context data, "
@@ -193,21 +197,21 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
     
     
     
-    for attempt in range(max_entries + 1):
-        try:
-            model_response = client.models.generate_content(
-                model = "gemini-2.5-flash",
-                contents = system_prompt,
-                config = genai.types.GenerateContentConfig(
-                    system_instruction = system_instruction,
-                    temperature = 0.2 # set temperature to decrease hallucination from AI 
-                )
-            )
-            return model_response.text
+    # for attempt in range(max_entries + 1):
+    #     try:
+    #         model_response = client.models.generate_content(
+    #             model = "gemini-2.5-flash",
+    #             contents = system_prompt,
+    #             config = genai.types.GenerateContentConfig(
+    #                 system_instruction = system_instruction,
+    #                 temperature = 0.2 # set temperature to decrease hallucination from AI 
+    #             )
+    #         )
+    #         return model_response.text
             
-        except Exception as e:
-            print(f"Error: {e}")
-            if attempt < max_entries and "503" in str(e):
-                time.sleep(3) # Wait for 3 seconds then retry
-                continue
-            raise
+    #     except Exception as e:
+    #         print(f"Error: {e}")
+    #         if attempt < max_entries and "503" in str(e):
+    #             time.sleep(3) # Wait for 3 seconds then retry
+    #             continue
+    #         raise

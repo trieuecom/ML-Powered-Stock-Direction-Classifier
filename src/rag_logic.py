@@ -197,21 +197,21 @@ def provide_recommendation(ticker, user_action, final_action, probability, all_n
     
     
     
-    # for attempt in range(max_entries + 1):
-    #     try:
-    #         model_response = client.models.generate_content(
-    #             model = "gemini-2.5-flash",
-    #             contents = system_prompt,
-    #             config = genai.types.GenerateContentConfig(
-    #                 system_instruction = system_instruction,
-    #                 temperature = 0.2 # set temperature to decrease hallucination from AI 
-    #             )
-    #         )
-    #         return model_response.text
+    for attempt in range(max_entries + 1):
+        try:
+            model_response = client.models.generate_content(
+                model = "gemini-2.5-flash",
+                contents = system_prompt,
+                config = genai.types.GenerateContentConfig(
+                    system_instruction = system_instruction,
+                    temperature = 0.2 # set temperature to decrease hallucination from AI 
+                )
+            )
+            return model_response.text
             
-    #     except Exception as e:
-    #         print(f"Error: {e}")
-    #         if attempt < max_entries and "503" in str(e):
-    #             time.sleep(3) # Wait for 3 seconds then retry
-    #             continue
-    #         raise
+        except Exception as e:
+            print(f"Error: {e}")
+            if attempt < max_entries and "503" in str(e):
+                time.sleep(3) # Wait for 3 seconds then retry
+                continue
+            raise

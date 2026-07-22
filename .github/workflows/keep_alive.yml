@@ -1,4 +1,4 @@
-name: Keep Alive Supabase
+name: Ping Supabase (insert keep-alive row)
 
 on: 
   schedule: 
@@ -13,6 +13,10 @@ jobs:
     steps: 
     - name: Send a ping request to Supabase to keep it alive
       run: |
-        curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/predictions?limit=1" \
-        -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
-        -H "Authorization: Bearer ${{ secrets.SUPABASE_SECRET_KEY }}"
+        curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/keep_alive" \
+            -H "apikey: ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SECRET_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d '{"pinged_at": "'"$(date -u +%FT%TZ)"'"}' \
+            --fail
